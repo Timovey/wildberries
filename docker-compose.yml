@@ -1,0 +1,34 @@
+version: '3.9'
+
+services:
+    
+    postgresdb:
+        image: postgres:latest
+        container_name: postgresdb
+        ports:
+            - 5555:5432
+        restart: on-failure
+        volumes:
+            - ./postgres-data:/var/lib/postgresql/data
+        environment:
+            POSTGRES_PASSWORD: postgres
+            POSTGRES_USER: postgres
+            POSTGRES_DB: wildberries
+            PGDATA: "/var/lib/postgresql/data/pgdata"
+            
+    node-service:
+        build:
+            context: ./
+            dockerfile: ./Dockerfile
+        env_file: .env
+        container_name: node-service
+        ports:
+            - 9004:4000
+        restart: always
+        depends_on:
+            - postgresdb
+        stdin_open: true
+        tty: true
+
+volumes:
+    postgresdb:
