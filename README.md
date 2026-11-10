@@ -1,20 +1,27 @@
-# ERP-AERO
+# Wildberries Tariffs
 
-Описание системы:
+Сервис по расписанию собирает тарифы Wildberries на доставку и хранение коробов по складам, сохраняет их в
+PostgreSQL и выгружает в Google Таблицу — отдельный лист на каждый день.
 
-- Node v20.12.1
-- typescript v5.4.4
-- npm v10.5.0
-- Windows 10
+**Стек:** Node.js · TypeScript · Express · Knex · PostgreSQL · node-cron · Google Sheets API · Docker
 
-Запуск:
+## Как это работает
 
-- создаем и корректируем .env файл, по подобию .env.example
-- создаем в корне проекта файл credentials.json и вставляем данные, которые пришли в сопроводительном письме на hh
-- запускаем докер контейнеры из корня проекта
+| Когда | Что происходит |
+| --- | --- |
+| каждый час в :23 | запрос к `common-api.wildberries.ru/api/v1/tariffs/box` за текущий день; тарифы по складам обновляются в таблице `warehouse` (upsert по складу и дате) |
+| каждый час в :25 | данные за день выгружаются в Google Таблицу на лист с датой, лист создаётся при необходимости |
+
+## Запуск
+
+1. Создайте `.env` по образцу `.env.example`: доступ к PostgreSQL, токен API Wildberries (`AUTH_WB`),
+   ID Google Таблицы (`GOOGLE_SHEET_ID`).
+2. Положите ключ сервисного аккаунта Google в `credentials.json` в корне проекта (файл в `.gitignore`) и выдайте
+   этому аккаунту доступ к таблице.
+3. Запустите:
+
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
 
-- можно проверить данные подключившись к Postgres: localhost:5555
--проверить файл в Google Sheets: [Таблица](https://docs.google.com/spreadsheets/d/1fWTuPRjpqSjXOBQbZ17089z05w7Hn70RUZLbHqKTy1g/edit?gid=1294745453#gid=1294745453) 
+Или локально: `npm install`, `npm run migrate`, затем `npm run dev`.
