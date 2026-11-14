@@ -26,8 +26,9 @@ export default async function () {
 				headerValues: headers
 			});
 		}
-		sheet.clearRows();
-		sheet.setHeaderRow(headers);
+		// без await очистка могла выполниться уже после addRows и стереть свежие данные
+		await sheet.clearRows();
+		await sheet.setHeaderRow(headers);
 
 		const rows = warehouses.map((warehouse) => {
 			const obj: any = {};

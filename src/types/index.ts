@@ -6,15 +6,25 @@ export interface IWarehouseEntity {
 	boxStorageBase: string;
 	boxStorageLiter: string;
 	warehouseName: string;
-	date: Date;
+	/** Дата в формате YYYY-MM-DD (колонка типа date). */
+	date: Date | string;
 }
 
 export interface IWarehouseEntityInsert extends Omit<IWarehouseEntity, 'id'> {}
 
+/**
+ * Склад в ответе API WB. Набор полей WB со временем расширяет, поэтому лишние поля допускаются,
+ * а в БД попадают только известные колонки.
+ */
+export interface IApiWarehouse
+	extends Partial<Omit<IWarehouseEntity, 'id' | 'date'>> {
+	[field: string]: unknown;
+}
+
 export interface IApiData {
 	dtNextBox: Date;
 	dtTillMax: Date;
-	warehouseList: IWarehouseEntityInsert[];
+	warehouseList: IApiWarehouse[];
 }
 
 export const headers = [

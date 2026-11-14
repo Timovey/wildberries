@@ -1,3 +1,8 @@
 node_modules/
 .git
 postgres-data/
+.env
+.env.*
+!.env.example
+# ключ сервисного аккаунта Google не должен попадать в слои образа
+credentials.json

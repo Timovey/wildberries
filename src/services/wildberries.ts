@@ -1,7 +1,29 @@
 import axios from 'axios';
 import moment from 'moment';
 import { _knex } from '../db';
-import { IApiData, IWarehouseEntity, IWarehouseEntityInsert } from '../types';
+import { IApiData, IApiWarehouse, IWarehouseEntityInsert } from '../types';
+
+/** Значение, которым WB обозначает отсутствующий тариф. */
+const EMPTY_TARIFF = '-';
+
+/**
+ * Берём из ответа API только известные колонки таблицы. Раньше объект WB вставлялся целиком,
+ * и любое новое поле в ответе давало ошибку "column does not exist" — сбор молча останавливался.
+ */
+function toWarehouseRow(warehouse: IApiWarehouse, date: string): IWarehouseEntityInsert {
+	const value = (field: unknown) =>
+		field === undefined || field === null ? EMPTY_TARIFF : String(field);
+
+	return {
+		boxDeliveryAndStorageExpr: value(warehouse.boxDeliveryAndStorageExpr),
+		boxDeliveryBase: value(warehouse.boxDeliveryBase),
+		boxDeliveryLiter: value(warehouse.boxDeliveryLiter),
+		boxStorageBase: value(warehouse.boxStorageBase),
+		boxStorageLiter: value(warehouse.boxStorageLiter),
+		warehouseName: String(warehouse.warehouseName),
+		date
+	};
+}
 
 export default async function () {
 	try {
@@ -17,27 +39,22 @@ export default async function () {
 				}
 			}
 		);
-		const newData = wbRes.data.response.data as IApiData;
+		const newData = wbRes.data?.response?.data as IApiData | undefined;
+		const rows = (newData?.warehouseList ?? [])
+			.filter((warehouse) => Boolean(warehouse?.warehouseName))
+			.map((warehouse) => toWarehouseRow(warehouse, now));
 
-		const existWarehouse = await _knex<IWarehouseEntity>('warehouse')
-			.select('*')
-			.where('date', now);
+		if (!rows.length) {
+			console.log('WB вернул пустой список складов, данные не обновлены');
+			return;
+		}
 
-		const updatePromises = newData.warehouseList.map((newW) => {
-			const exist = existWarehouse.find(
-				(el) => el.warehouseName == newW.warehouseName
-			);
-			if (exist) {
-				return _knex<IWarehouseEntity>('warehouse')
-					.update(newW)
-					.where('id', exist.id);
-			}
-			newW.date = new Date();
-
-			return _knex<IWarehouseEntityInsert>('warehouse').insert(newW);
-		});
-
-		await Promise.all(updatePromises);
+		// Один атомарный upsert по уникальному ключу (warehouseName, date) вместо
+		// «прочитать → UPDATE/INSERT на каждый склад»: без гонок, дублей и N отдельных запросов.
+		await _knex<IWarehouseEntityInsert>('warehouse')
+			.insert(rows)
+			.onConflict(['warehouseName', 'date'])
+			.merge();
 	} catch (err) {
 		console.log(err);
 	}
